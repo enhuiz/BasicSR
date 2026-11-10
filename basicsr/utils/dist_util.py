@@ -41,7 +41,13 @@ def _init_dist_slurm(backend, port=None):
     node_list = os.environ['SLURM_NODELIST']
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput(f'scontrol show hostname {node_list} | head -n1')
+    # Invoke scontrol directly and read the first hostname from its output.
+    result = subprocess.run(['scontrol', 'show', 'hostname', node_list],
+                            check=True, capture_output=True, text=True)
+    hostnames = result.stdout.splitlines()
+    if not hostnames or not hostnames[0].strip():
+        raise RuntimeError('scontrol returned no hostnames')
+    addr = hostnames[0].strip()
     # specify master port
     if port is not None:
         os.environ['MASTER_PORT'] = str(port)
